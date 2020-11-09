@@ -1,0 +1,48 @@
+---
+- name: Add prequisite packages
+  apt:
+    name:
+      - unzip
+
+- name: Add teamcity user
+  user:
+    name: "{{ teamcity_user }}"
+    group: "{{ teamcity_group }}"
+
+- name: Add service path
+  file:
+    path: "{{ service_path }}"
+    state: directory
+    owner: "{{ teamcity_user }}"
+    group: "{{ teamcity_group }}"
+
+- name: Check teamcity server already installed
+  stat:
+    path: "{{ service_path }}/Teamcity"
+  register: teamcity_server
+
+- name: Download teamcity archive
+  get_url:
+    url: "https://download.jetbrains.com/teamcity/{{ server_archive }}"
+    dest: "{{ server_archive_path }}"
+  when: not teamcity_server.stat.exists
+
+- name: Unpack teamcity
+  unarchive:
+    remote_src: yes
+    src: "{{ server_archive_path }}"
+    dest: "{{ service_path }}"
+    owner: "{{ teamcity_user }}"
+    group: "{{ teamcity_group }}"
+  when: not teamcity_server.stat.exists
+
+- name: Create service definition
+  template:
+    src: teamcity-server.service.j2
+    dest: /lib/systemd/system/teamcity-server.service
+
+- name: Enable teamcity service
+  service:
+    name: teamcity-server
+    state: started
+    enabled: yes
